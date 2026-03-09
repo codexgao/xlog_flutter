@@ -8,7 +8,7 @@
 // ignore_for_file: type=lint
 import 'dart:ffi' as ffi;
 
-/// Bindings for `src/xlog_flutter.h`.
+/// Bindings for `src/xlog_flutter.h` — mars xlog FFI wrapper.
 ///
 /// Regenerate bindings with `dart run ffigen --config ffigen.yaml`.
 ///
@@ -27,43 +27,165 @@ class XlogFlutterBindings {
           lookup)
       : _lookup = lookup;
 
-  /// A very short-lived native function.
+  /// Open xlog appender.
   ///
-  /// For very short-lived functions, it is fine to call them on the main isolate.
-  /// They will block the Dart execution while running the native function, so
-  /// only do this for native functions which are guaranteed to be short-lived.
-  int sum(
-    int a,
-    int b,
+  /// mode: 0=async, 1=sync
+  ///
+  /// level: 0=verbose, 1=debug, 2=info, 3=warn, 4=error, 5=fatal, 6=none
+  ///
+  /// compress_mode: 0=zlib, 1=zstd
+  ///
+  /// logdir, nameprefix, cachedir: UTF-8 strings; cachedir may be NULL/empty
+  ///
+  /// cache_days: 0 = no cache limit
+  void xlog_open(
+    int mode,
+    int level,
+    ffi.Pointer<ffi.Char> logdir,
+    ffi.Pointer<ffi.Char> nameprefix,
+    int compress_mode,
+    ffi.Pointer<ffi.Char> cachedir,
+    int cache_days,
   ) {
-    return _sum(
-      a,
-      b,
+    return _xlog_open(
+      mode,
+      level,
+      logdir,
+      nameprefix,
+      compress_mode,
+      cachedir,
+      cache_days,
     );
   }
 
-  late final _sumPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int, ffi.Int)>>('sum');
-  late final _sum = _sumPtr.asFunction<int Function(int, int)>();
+  late final _xlog_openPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int,
+              ffi.Int,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Int,
+              ffi.Pointer<ffi.Char>,
+              ffi.Int)>>('xlog_open');
+  late final _xlog_open = _xlog_openPtr.asFunction<
+      void Function(int, int, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>,
+          int, ffi.Pointer<ffi.Char>, int)>();
 
-  /// A longer lived native function, which occupies the thread calling it.
-  ///
-  /// Do not call these kind of native functions in the main isolate. They will
-  /// block Dart execution. This will cause dropped frames in Flutter applications.
-  /// Instead, call these native functions on a separate isolate.
-  int sum_long_running(
-    int a,
-    int b,
+  void xlog_close() {
+    return _xlog_close();
+  }
+
+  late final _xlog_closePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>('xlog_close');
+  late final _xlog_close = _xlog_closePtr.asFunction<void Function()>();
+
+  /// is_sync: 0=async flush, 1=sync flush (blocks until flushed)
+  void xlog_flush(
+    int is_sync,
   ) {
-    return _sum_long_running(
-      a,
-      b,
+    return _xlog_flush(
+      is_sync,
     );
   }
 
-  late final _sum_long_runningPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int, ffi.Int)>>(
-          'sum_long_running');
-  late final _sum_long_running =
-      _sum_long_runningPtr.asFunction<int Function(int, int)>();
+  late final _xlog_flushPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int)>>('xlog_flush');
+  late final _xlog_flush = _xlog_flushPtr.asFunction<void Function(int)>();
+
+  /// Write a log entry.
+  ///
+  /// level: same values as xlog_open's level param
+  ///
+  /// tag, filename, funcname, message: UTF-8 strings; filename/funcname may be NULL
+  ///
+  /// line: source line number (0 if unknown)
+  void xlog_write(
+    int level,
+    ffi.Pointer<ffi.Char> tag,
+    ffi.Pointer<ffi.Char> filename,
+    ffi.Pointer<ffi.Char> funcname,
+    int line,
+    ffi.Pointer<ffi.Char> message,
+  ) {
+    return _xlog_write(
+      level,
+      tag,
+      filename,
+      funcname,
+      line,
+      message,
+    );
+  }
+
+  late final _xlog_writePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Int,
+              ffi.Pointer<ffi.Char>)>>('xlog_write');
+  late final _xlog_write = _xlog_writePtr.asFunction<
+      void Function(int, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>, int, ffi.Pointer<ffi.Char>)>();
+
+  void xlog_set_console_log(
+    int is_open,
+  ) {
+    return _xlog_set_console_log(
+      is_open,
+    );
+  }
+
+  late final _xlog_set_console_logPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int)>>(
+          'xlog_set_console_log');
+  late final _xlog_set_console_log =
+      _xlog_set_console_logPtr.asFunction<void Function(int)>();
+
+  void xlog_set_level(
+    int level,
+  ) {
+    return _xlog_set_level(
+      level,
+    );
+  }
+
+  late final _xlog_set_levelPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int)>>(
+          'xlog_set_level');
+  late final _xlog_set_level =
+      _xlog_set_levelPtr.asFunction<void Function(int)>();
+
+  /// max_bytes: 0 = no file size limit (default)
+  void xlog_set_max_file_size(
+    int max_bytes,
+  ) {
+    return _xlog_set_max_file_size(
+      max_bytes,
+    );
+  }
+
+  late final _xlog_set_max_file_sizePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+          'xlog_set_max_file_size');
+  late final _xlog_set_max_file_size =
+      _xlog_set_max_file_sizePtr.asFunction<void Function(int)>();
+
+  /// max_seconds: max alive duration in seconds (default: 10 days = 864000)
+  void xlog_set_max_alive_duration(
+    int max_seconds,
+  ) {
+    return _xlog_set_max_alive_duration(
+      max_seconds,
+    );
+  }
+
+  late final _xlog_set_max_alive_durationPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+          'xlog_set_max_alive_duration');
+  late final _xlog_set_max_alive_duration =
+      _xlog_set_max_alive_durationPtr.asFunction<void Function(int)>();
 }
