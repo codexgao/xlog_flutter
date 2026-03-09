@@ -2,8 +2,10 @@ cmake_minimum_required(VERSION 3.10)
 
 project(xlog_flutter_library VERSION 0.0.1 LANGUAGES CXX)
 
+# Resolve real path first so symlink traversal (Flutter plugin_symlinks) works correctly.
+get_filename_component(PLUGIN_SRC_REAL "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
 # Mars xlog root (two levels up from samples/xlog_flutter/src/)
-set(MARS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../mars")
+set(MARS_ROOT "${PLUGIN_SRC_REAL}/../../../mars")
 
 add_library(xlog_flutter SHARED
   "xlog_flutter.cpp"
