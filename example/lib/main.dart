@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
-import 'dart:async';
+import 'dart:io';
 
-import 'package:xlog_flutter/xlog_flutter.dart' as xlog_flutter;
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:xlog_flutter/xlog_flutter.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,57 +16,70 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late int sumResult;
-  late Future<int> sumAsyncResult;
+  String _status = 'Not initialized';
+  bool _opened = false;
 
-  @override
-  void initState() {
-    super.initState();
-    sumResult = xlog_flutter.sum(1, 2);
-    sumAsyncResult = xlog_flutter.sumAsync(3, 4);
+  Future<void> _openXlog() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final logDir = Directory('${dir.path}/xlog');
+    await logDir.create(recursive: true);
+
+    XLog.open(XLogConfig(
+      logDir: logDir.path,
+      namePrefix: 'xlog_flutter_demo',
+      level: LogLevel.verbose,
+      mode: AppenderMode.async_,
+    ));
+    XLog.setConsoleLog(true);
+
+    setState(() {
+      _opened = true;
+      _status = 'Opened. Log dir: ${logDir.path}';
+    });
+  }
+
+  void _writeLogs() {
+    if (!_opened) return;
+    XLog.verbose('Demo', 'This is a verbose log');
+    XLog.debug('Demo', 'This is a debug log');
+    XLog.info('Demo', 'This is an info log');
+    XLog.warn('Demo', 'This is a warning log');
+    XLog.error('Demo', 'This is an error log');
+    setState(() => _status = 'Wrote 5 log entries.');
+  }
+
+  void _flush() {
+    if (!_opened) return;
+    XLog.flushSync();
+    setState(() => _status = 'Flushed to disk.');
+  }
+
+  void _close() {
+    if (!_opened) return;
+    XLog.close();
+    setState(() {
+      _opened = false;
+      _status = 'Closed.';
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    const textStyle = TextStyle(fontSize: 25);
-    const spacerSmall = SizedBox(height: 10);
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Native Packages'),
-        ),
-        body: SingleChildScrollView(
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              children: [
-                const Text(
-                  'This calls a native function through FFI that is shipped as source in the package. '
-                  'The native code is built as part of the Flutter Runner build.',
-                  style: textStyle,
-                  textAlign: TextAlign.center,
-                ),
-                spacerSmall,
-                Text(
-                  'sum(1, 2) = $sumResult',
-                  style: textStyle,
-                  textAlign: TextAlign.center,
-                ),
-                spacerSmall,
-                FutureBuilder<int>(
-                  future: sumAsyncResult,
-                  builder: (BuildContext context, AsyncSnapshot<int> value) {
-                    final displayValue =
-                        (value.hasData) ? value.data : 'loading';
-                    return Text(
-                      'await sumAsync(3, 4) = $displayValue',
-                      style: textStyle,
-                      textAlign: TextAlign.center,
-                    );
-                  },
-                ),
-              ],
-            ),
+        appBar: AppBar(title: const Text('xlog_flutter Demo')),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(_status, style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _openXlog,  child: const Text('Open XLog')),
+              ElevatedButton(onPressed: _writeLogs, child: const Text('Write Logs')),
+              ElevatedButton(onPressed: _flush,     child: const Text('Flush Sync')),
+              ElevatedButton(onPressed: _close,     child: const Text('Close XLog')),
+            ],
           ),
         ),
       ),
