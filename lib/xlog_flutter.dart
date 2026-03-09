@@ -1,41 +1,206 @@
-
-import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
-import 'dart:isolate';
+
+import 'package:ffi/ffi.dart';
 
 import 'xlog_flutter_bindings_generated.dart';
 
-/// A very short-lived native function.
-///
-/// For very short-lived functions, it is fine to call them on the main isolate.
-/// They will block the Dart execution while running the native function, so
-/// only do this for native functions which are guaranteed to be short-lived.
-int sum(int a, int b) => _bindings.sum(a, b);
+// ---------------------------------------------------------------------------
+// Public enumerations
+// ---------------------------------------------------------------------------
 
-/// A longer lived native function, which occupies the thread calling it.
-///
-/// Do not call these kind of native functions in the main isolate. They will
-/// block Dart execution. This will cause dropped frames in Flutter applications.
-/// Instead, call these native functions on a separate isolate.
-///
-/// Modify this to suit your own use case. Example use cases:
-///
-/// 1. Reuse a single isolate for various different kinds of requests.
-/// 2. Use multiple helper isolates for parallel execution.
-Future<int> sumAsync(int a, int b) async {
-  final SendPort helperIsolateSendPort = await _helperIsolateSendPort;
-  final int requestId = _nextSumRequestId++;
-  final _SumRequest request = _SumRequest(requestId, a, b);
-  final Completer<int> completer = Completer<int>();
-  _sumRequests[requestId] = completer;
-  helperIsolateSendPort.send(request);
-  return completer.future;
+enum LogLevel {
+  verbose, // 0
+  debug,   // 1
+  info,    // 2
+  warn,    // 3
+  error,   // 4
+  fatal,   // 5
+  none,    // 6
 }
+
+enum AppenderMode {
+  async_, // 0
+  sync_,  // 1
+}
+
+enum CompressMode {
+  zlib, // 0
+  zstd, // 1
+}
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
+class XLogConfig {
+  /// Directory where log files are written. Must be writable.
+  final String logDir;
+
+  /// Prefix for log file names (e.g. "myapp").
+  final String namePrefix;
+
+  /// Minimum log level. Messages below this level are discarded.
+  final LogLevel level;
+
+  /// Async (default) or sync write mode.
+  final AppenderMode mode;
+
+  /// Compression algorithm used for log files.
+  final CompressMode compressMode;
+
+  /// Optional cache directory. Use the app's cache dir to avoid SIGBUS on Android.
+  /// If empty, no separate cache is used.
+  final String cacheDir;
+
+  /// How many days to keep old log files. 0 = unlimited.
+  final int cacheDays;
+
+  const XLogConfig({
+    required this.logDir,
+    required this.namePrefix,
+    this.level = LogLevel.debug,
+    this.mode = AppenderMode.async_,
+    this.compressMode = CompressMode.zlib,
+    this.cacheDir = '',
+    this.cacheDays = 0,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// XLog static API
+// ---------------------------------------------------------------------------
+
+/// High-level wrapper around the mars xlog C library.
+///
+/// Usage:
+/// ```dart
+/// XLog.open(XLogConfig(logDir: '/path/to/logs', namePrefix: 'myapp'));
+/// XLog.info('MyTag', 'Application started');
+/// // ... at shutdown:
+/// XLog.close();
+/// ```
+class XLog {
+  XLog._();
+
+  // -------------------------------------------------------------------------
+  // Lifecycle
+  // -------------------------------------------------------------------------
+
+  /// Open the xlog appender. Call once at application startup before any
+  /// log writes. [config] controls log directory, compression, etc.
+  static void open(XLogConfig config) {
+    final logDir   = config.logDir.toNativeUtf8();
+    final prefix   = config.namePrefix.toNativeUtf8();
+    final cacheDir = config.cacheDir.toNativeUtf8();
+    try {
+      _bindings.xlog_open(
+        config.mode.index,
+        config.level.index,
+        logDir.cast(),
+        prefix.cast(),
+        config.compressMode.index,
+        cacheDir.cast(),
+        config.cacheDays,
+      );
+    } finally {
+      malloc.free(logDir);
+      malloc.free(prefix);
+      malloc.free(cacheDir);
+    }
+  }
+
+  /// Flush buffered logs to disk. Returns immediately (async flush).
+  static void flush() => _bindings.xlog_flush(0);
+
+  /// Flush buffered logs synchronously. Blocks until all pending data is written.
+  static void flushSync() => _bindings.xlog_flush(1);
+
+  /// Close the xlog appender. Flushes remaining data. Call at application shutdown.
+  static void close() => _bindings.xlog_close();
+
+  // -------------------------------------------------------------------------
+  // Log writing
+  // -------------------------------------------------------------------------
+
+  static void verbose(String tag, String message,
+      {String filename = '', String funcname = '', int line = 0}) =>
+      _write(LogLevel.verbose, tag, message, filename, funcname, line);
+
+  static void debug(String tag, String message,
+      {String filename = '', String funcname = '', int line = 0}) =>
+      _write(LogLevel.debug, tag, message, filename, funcname, line);
+
+  static void info(String tag, String message,
+      {String filename = '', String funcname = '', int line = 0}) =>
+      _write(LogLevel.info, tag, message, filename, funcname, line);
+
+  static void warn(String tag, String message,
+      {String filename = '', String funcname = '', int line = 0}) =>
+      _write(LogLevel.warn, tag, message, filename, funcname, line);
+
+  static void error(String tag, String message,
+      {String filename = '', String funcname = '', int line = 0}) =>
+      _write(LogLevel.error, tag, message, filename, funcname, line);
+
+  static void fatal(String tag, String message,
+      {String filename = '', String funcname = '', int line = 0}) =>
+      _write(LogLevel.fatal, tag, message, filename, funcname, line);
+
+  // -------------------------------------------------------------------------
+  // Runtime configuration
+  // -------------------------------------------------------------------------
+
+  /// Enable or disable console (stdout/logcat) output.
+  static void setConsoleLog(bool enable) =>
+      _bindings.xlog_set_console_log(enable ? 1 : 0);
+
+  /// Change the minimum log level at runtime.
+  static void setLevel(LogLevel level) =>
+      _bindings.xlog_set_level(level.index);
+
+  /// Set the maximum size (bytes) for a single log file. 0 = unlimited.
+  static void setMaxFileSize(int maxBytes) =>
+      _bindings.xlog_set_max_file_size(maxBytes);
+
+  /// Set how long (seconds) to keep old log files. Default 10 days = 864000.
+  static void setMaxAliveDuration(int maxSeconds) =>
+      _bindings.xlog_set_max_alive_duration(maxSeconds);
+
+  // -------------------------------------------------------------------------
+  // Internal
+  // -------------------------------------------------------------------------
+
+  static void _write(LogLevel level, String tag, String message,
+      String filename, String funcname, int line) {
+    final nTag     = tag.toNativeUtf8();
+    final nFile    = filename.toNativeUtf8();
+    final nFunc    = funcname.toNativeUtf8();
+    final nMessage = message.toNativeUtf8();
+    try {
+      _bindings.xlog_write(
+        level.index,
+        nTag.cast(),
+        nFile.cast(),
+        nFunc.cast(),
+        line,
+        nMessage.cast(),
+      );
+    } finally {
+      malloc.free(nTag);
+      malloc.free(nFile);
+      malloc.free(nFunc);
+      malloc.free(nMessage);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Native library loading
+// ---------------------------------------------------------------------------
 
 const String _libName = 'xlog_flutter';
 
-/// The dynamic library in which the symbols for [XlogFlutterBindings] can be found.
 final DynamicLibrary _dylib = () {
   if (Platform.isMacOS || Platform.isIOS) {
     return DynamicLibrary.open('$_libName.framework/$_libName');
@@ -46,86 +211,7 @@ final DynamicLibrary _dylib = () {
   if (Platform.isWindows) {
     return DynamicLibrary.open('$_libName.dll');
   }
-  throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
+  throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
 }();
 
-/// The bindings to the native functions in [_dylib].
 final XlogFlutterBindings _bindings = XlogFlutterBindings(_dylib);
-
-
-/// A request to compute `sum`.
-///
-/// Typically sent from one isolate to another.
-class _SumRequest {
-  final int id;
-  final int a;
-  final int b;
-
-  const _SumRequest(this.id, this.a, this.b);
-}
-
-/// A response with the result of `sum`.
-///
-/// Typically sent from one isolate to another.
-class _SumResponse {
-  final int id;
-  final int result;
-
-  const _SumResponse(this.id, this.result);
-}
-
-/// Counter to identify [_SumRequest]s and [_SumResponse]s.
-int _nextSumRequestId = 0;
-
-/// Mapping from [_SumRequest] `id`s to the completers corresponding to the correct future of the pending request.
-final Map<int, Completer<int>> _sumRequests = <int, Completer<int>>{};
-
-/// The SendPort belonging to the helper isolate.
-Future<SendPort> _helperIsolateSendPort = () async {
-  // The helper isolate is going to send us back a SendPort, which we want to
-  // wait for.
-  final Completer<SendPort> completer = Completer<SendPort>();
-
-  // Receive port on the main isolate to receive messages from the helper.
-  // We receive two types of messages:
-  // 1. A port to send messages on.
-  // 2. Responses to requests we sent.
-  final ReceivePort receivePort = ReceivePort()
-    ..listen((dynamic data) {
-      if (data is SendPort) {
-        // The helper isolate sent us the port on which we can sent it requests.
-        completer.complete(data);
-        return;
-      }
-      if (data is _SumResponse) {
-        // The helper isolate sent us a response to a request we sent.
-        final Completer<int> completer = _sumRequests[data.id]!;
-        _sumRequests.remove(data.id);
-        completer.complete(data.result);
-        return;
-      }
-      throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
-    });
-
-  // Start the helper isolate.
-  await Isolate.spawn((SendPort sendPort) async {
-    final ReceivePort helperReceivePort = ReceivePort()
-      ..listen((dynamic data) {
-        // On the helper isolate listen to requests and respond to them.
-        if (data is _SumRequest) {
-          final int result = _bindings.sum_long_running(data.a, data.b);
-          final _SumResponse response = _SumResponse(data.id, result);
-          sendPort.send(response);
-          return;
-        }
-        throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
-      });
-
-    // Send the port to the main isolate on which we can receive requests.
-    sendPort.send(helperReceivePort.sendPort);
-  }, receivePort.sendPort);
-
-  // Wait until the helper isolate has sent us back the SendPort on which we
-  // can start sending requests.
-  return completer.future;
-}();
