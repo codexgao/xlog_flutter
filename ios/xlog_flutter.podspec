@@ -21,8 +21,8 @@ Pod::Spec.new do |s|
   ]
 
   # Prebuilt xcframework (build with: cd mars && python build_ios.py)
-  # Place output at: libs/ios/MarsXlog.xcframework
-  xcframework_path = '../libs/ios/MarsXlog.xcframework'
+  # Place output at: ios/libs/MarsXlog.xcframework
+  xcframework_path = 'libs/MarsXlog.xcframework'
   if File.exist?(File.join(__dir__, xcframework_path))
     s.vendored_frameworks = xcframework_path
   end
