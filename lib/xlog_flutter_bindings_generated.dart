@@ -35,7 +35,7 @@ class XlogFlutterBindings {
   ///
   /// compress_mode: 0=zlib, 1=zstd
   ///
-  /// logdir, nameprefix, cachedir: UTF-8 strings; cachedir may be NULL/empty
+  /// logdir, nameprefix, pub_key, cachedir: UTF-8 strings; pub_key/cachedir may be NULL/empty
   ///
   /// cache_days: 0 = no cache limit
   void xlog_open(
@@ -43,6 +43,7 @@ class XlogFlutterBindings {
     int level,
     ffi.Pointer<ffi.Char> logdir,
     ffi.Pointer<ffi.Char> nameprefix,
+    ffi.Pointer<ffi.Char> pub_key,
     int compress_mode,
     ffi.Pointer<ffi.Char> cachedir,
     int cache_days,
@@ -52,6 +53,7 @@ class XlogFlutterBindings {
       level,
       logdir,
       nameprefix,
+      pub_key,
       compress_mode,
       cachedir,
       cache_days,
@@ -65,12 +67,13 @@ class XlogFlutterBindings {
               ffi.Int,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
               ffi.Int,
               ffi.Pointer<ffi.Char>,
               ffi.Int)>>('xlog_open');
   late final _xlog_open = _xlog_openPtr.asFunction<
       void Function(int, int, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>,
-          int, ffi.Pointer<ffi.Char>, int)>();
+          ffi.Pointer<ffi.Char>, int, ffi.Pointer<ffi.Char>, int)>();
 
   void xlog_close() {
     return _xlog_close();

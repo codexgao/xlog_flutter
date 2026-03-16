@@ -49,6 +49,9 @@ class XLogConfig {
   /// Compression algorithm used for log files.
   final CompressMode compressMode;
 
+  /// Optional public key for log file encryption (ECC). Empty string disables encryption.
+  final String pubKey;
+
   /// Optional cache directory. Use the app's cache dir to avoid SIGBUS on Android.
   /// If empty, no separate cache is used.
   final String cacheDir;
@@ -62,6 +65,7 @@ class XLogConfig {
     this.level = LogLevel.debug,
     this.mode = AppenderMode.async_,
     this.compressMode = CompressMode.zlib,
+    this.pubKey = '',
     this.cacheDir = '',
     this.cacheDays = 0,
   });
@@ -92,6 +96,7 @@ class XLog {
   static void open(XLogConfig config) {
     final logDir   = config.logDir.toNativeUtf8();
     final prefix   = config.namePrefix.toNativeUtf8();
+    final pubKey   = config.pubKey.toNativeUtf8();
     final cacheDir = config.cacheDir.toNativeUtf8();
     try {
       _bindings.xlog_open(
@@ -99,6 +104,7 @@ class XLog {
         config.level.index,
         logDir.cast(),
         prefix.cast(),
+        pubKey.cast(),
         config.compressMode.index,
         cacheDir.cast(),
         config.cacheDays,
@@ -106,6 +112,7 @@ class XLog {
     } finally {
       malloc.free(logDir);
       malloc.free(prefix);
+      malloc.free(pubKey);
       malloc.free(cacheDir);
     }
   }

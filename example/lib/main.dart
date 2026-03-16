@@ -22,6 +22,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> _openXlog() async {
     final dir = await getApplicationDocumentsDirectory();
     final logDir = Directory('${dir.path}/xlog');
+    print('Log directory: ${logDir.path}');
     await logDir.create(recursive: true);
 
     XLog.open(XLogConfig(
@@ -29,6 +30,8 @@ class _MyAppState extends State<MyApp> {
       namePrefix: 'xlog_flutter_demo',
       level: LogLevel.verbose,
       mode: AppenderMode.async_,
+      pubKey:
+          '99dbfea8e185e61f183c0d52547392aba065d4df3a8c3ea2647020e01fc09818ed5073adcb020b09282778477934b469c8aeba7b05698518af0b318ebbe3ef2d',
     ));
     XLog.setConsoleLog(true);
 
@@ -75,10 +78,10 @@ class _MyAppState extends State<MyApp> {
             children: [
               Text(_status, style: const TextStyle(fontSize: 14)),
               const SizedBox(height: 16),
-              ElevatedButton(onPressed: _openXlog,  child: const Text('Open XLog')),
+              ElevatedButton(onPressed: _openXlog, child: const Text('Open XLog')),
               ElevatedButton(onPressed: _writeLogs, child: const Text('Write Logs')),
-              ElevatedButton(onPressed: _flush,     child: const Text('Flush Sync')),
-              ElevatedButton(onPressed: _close,     child: const Text('Close XLog')),
+              ElevatedButton(onPressed: _flush, child: const Text('Flush Sync')),
+              ElevatedButton(onPressed: _close, child: const Text('Close XLog')),
             ],
           ),
         ),

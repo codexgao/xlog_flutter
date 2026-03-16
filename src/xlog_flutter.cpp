@@ -15,6 +15,7 @@ void xlog_open(int mode,
                int level,
                const char* logdir,
                const char* nameprefix,
+               const char* pub_key,
                int compress_mode,
                const char* cachedir,
                int cache_days) {
@@ -22,6 +23,7 @@ void xlog_open(int mode,
     config.mode_          = (mode == 1) ? kAppenderSync : kAppenderAsync;
     config.logdir_        = logdir ? logdir : "";
     config.nameprefix_    = nameprefix ? nameprefix : "";
+    config.pub_key_       = pub_key ? pub_key : "";
     config.compress_mode_ = (compress_mode == 1) ? kZstd : kZlib;
     config.cachedir_      = cachedir ? cachedir : "";
     config.cache_days_    = cache_days;

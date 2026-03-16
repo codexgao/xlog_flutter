@@ -17,12 +17,13 @@ extern "C" {
 // mode: 0=async, 1=sync
 // level: 0=verbose, 1=debug, 2=info, 3=warn, 4=error, 5=fatal, 6=none
 // compress_mode: 0=zlib, 1=zstd
-// logdir, nameprefix, cachedir: UTF-8 strings; cachedir may be NULL/empty
+// logdir, nameprefix, pub_key, cachedir: UTF-8 strings; pub_key/cachedir may be NULL/empty
 // cache_days: 0 = no cache limit
 FFI_PLUGIN_EXPORT void xlog_open(int mode,
                                  int level,
                                  const char* logdir,
                                  const char* nameprefix,
+                                 const char* pub_key,
                                  int compress_mode,
                                  const char* cachedir,
                                  int cache_days);
