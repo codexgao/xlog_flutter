@@ -13,13 +13,22 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 get_filename_component(PLUGIN_WIN_REAL "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
 set(PLUGIN_SRC  "${PLUGIN_WIN_REAL}/../src")
 set(INCLUDE_DIR "${PLUGIN_WIN_REAL}/../include")
+set(WIN_SRC_DIR "${PLUGIN_WIN_REAL}/src")
 set(LIB_DIR     "${PLUGIN_WIN_REAL}/libs")
 
 add_library(xlog_flutter SHARED
   "${PLUGIN_SRC}/xlog_flutter.cpp"
+  # Windows POSIX-compat shim: provides gettimeofday() used by xlog_flutter.cpp
+  "${WIN_SRC_DIR}/sys/time.c"
 )
 
-target_include_directories(xlog_flutter PRIVATE "${INCLUDE_DIR}" "${PLUGIN_SRC}")
+# WIN_SRC_DIR is listed first so <sys/time.h> resolves to the local shim
+# before any system paths; INCLUDE_DIR provides appender.h / xlogger/*.h.
+target_include_directories(xlog_flutter PRIVATE
+  "${WIN_SRC_DIR}"
+  "${INCLUDE_DIR}"
+  "${PLUGIN_SRC}"
+)
 
 set_target_properties(xlog_flutter PROPERTIES
   PUBLIC_HEADER "${PLUGIN_SRC}/xlog_flutter.h"

@@ -61,5 +61,24 @@ android {
 
     defaultConfig {
         minSdk = 21
+
+        ndk {
+            // Only ABIs for which a prebuilt libmarsxlog.so is provided.
+            // Add x86 / x86_64 here once those variants are built and placed
+            // under android/libs/{Debug,Release}/<abi>/.
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
+    }
+
+    sourceSets {
+        main {
+            // Prebuilt libmarsxlog.so — variant-specific directory selected below
+        }
+        debug {
+            jniLibs.srcDirs = ["libs/Debug"]
+        }
+        release {
+            jniLibs.srcDirs = ["libs/Release"]
+        }
     }
 }

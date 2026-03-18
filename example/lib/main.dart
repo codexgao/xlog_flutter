@@ -20,7 +20,7 @@ class _MyAppState extends State<MyApp> {
   bool _opened = false;
 
   Future<void> _openXlog() async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await getApplicationSupportDirectory();
     final logDir = Directory('${dir.path}/xlog');
     print('Log directory: ${logDir.path}');
     await logDir.create(recursive: true);

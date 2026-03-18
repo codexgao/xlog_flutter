@@ -6,7 +6,11 @@ project(xlog_flutter_library VERSION 0.0.1 LANGUAGES CXX)
 get_filename_component(PLUGIN_ANDROID_REAL "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
 set(PLUGIN_SRC  "${PLUGIN_ANDROID_REAL}/../src")
 set(INCLUDE_DIR "${PLUGIN_ANDROID_REAL}/../include")
-set(LIB_DIR     "${PLUGIN_ANDROID_REAL}/libs")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(LIB_DIR "${PLUGIN_ANDROID_REAL}/libs/Debug")
+else()
+  set(LIB_DIR "${PLUGIN_ANDROID_REAL}/libs/Release")
+endif()
 
 add_library(xlog_flutter SHARED
   "${PLUGIN_SRC}/xlog_flutter.cpp"
@@ -24,14 +28,21 @@ set_target_properties(xlog_flutter PROPERTIES
 target_compile_definitions(xlog_flutter PUBLIC DART_SHARED_LIB)
 
 # ---------------------------------------------------------------------------
-# Link prebuilt xlog static library
+# Link prebuilt xlog shared library
 # ---------------------------------------------------------------------------
-set(XLOG_LIB "${LIB_DIR}/${ANDROID_ABI}/libmarsxlog.a")
-if(EXISTS "${XLOG_LIB}")
-  target_link_libraries(xlog_flutter PRIVATE "${XLOG_LIB}" log z)
+set(XLOG_SO "${LIB_DIR}/${ANDROID_ABI}/libmarsxlog.so")
+if(EXISTS "${XLOG_SO}")
+  add_library(marsxlog SHARED IMPORTED)
+  set_target_properties(marsxlog PROPERTIES
+    IMPORTED_LOCATION "${XLOG_SO}"
+  )
+  target_link_libraries(xlog_flutter PRIVATE marsxlog log z)
 else()
-  message(WARNING
-    "xlog prebuilt lib not found: ${XLOG_LIB}\n"
-    "Build it with: cd mars && python build_android.py\n"
-    "Then copy each ABI .a to android/libs/<ABI>/libmarsxlog.a")
+  message(FATAL_ERROR
+    "xlog prebuilt lib not found: ${XLOG_SO}\n"
+    "Build it with:\n"
+    "  set NDK_ROOT=D:\\Envs\\Android\\Sdk\\ndk\\<version>\n"
+    "  cd mars && python build_android.py\n"
+    "    option 3 -> Release -> copy to android/libs/Release/<ABI>/\n"
+    "    option 4 -> Debug   -> copy to android/libs/Debug/<ABI>/")
 endif()
